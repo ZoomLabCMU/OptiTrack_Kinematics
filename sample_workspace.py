@@ -27,14 +27,26 @@ def sample_domain(max_height, max_actuator_dif,spacing=.005):
                     pts.append([x,y,z])
     return np.array(pts)
 
-def save_training_data(data, filename="training_data"):
+def save_training_data(data, filename="training_data1"):
     np.save(filename,data)
 
-sample = sample_domain(.0451,.03,.005)
+def adjust_act_command(command):
+    #Nx12 trajectory to adjust
+    #Actuators 3:6 are calibrated with linear regression
+    traj = np.zeros_like(command)
+
+    traj[:,3] = command[:,3]*.95976 + .00211
+    traj[:,4] = command[:,4]*.97326
+    traj[:,5] = command[:,5]*.9819 + .0014
+
+    return traj
+
+sample = sample_domain(.05,.043,.003)
 
 # PRESET POSITIONS
 p = np.ones((sample.shape[0], 12)) * 0.0012
 p[:,3:6] = sample
+p = adjust_act_command(p)
 
 
 def print_posn():
@@ -58,15 +70,15 @@ for i in range(0, p.shape[0]): # LOOP THROUGH ALL PRESET POSITIONS
     duration = [1.0]
     da.move_joint_position(p[i, :].reshape(1,12), duration)
     print(100*i/p.shape[0],"%","i","=",i)
-    sleep(1.5)
+    da.wait_until_done_moving()
     pos,rot,t = op.get_closest_datapoint(time.time())
     act_pos = da.get_joint_positions()[3:6]
     print("End Effector Position = ",pos-pos_0)
     print("Actuator Position",act_pos)
-    Data.append((act_pos,pos-pos_0))
-    save_training_data(np.array(Data),"training_data4")
+    Data.append((sample[i,:],pos-pos_0))
+    save_training_data(np.array(Data),"training_data1")
 
-save_training_data(np.array(Data),"training_data4")
+save_training_data(np.array(Data),"training_data1")
 
 # RESET TO FULLY RETRACTED ACTUATORS
 retract()
